@@ -43,11 +43,13 @@ var GameState = {
         this.toy = this.game.add.sprite(216, 570, 'toy')
         this.toy.anchor.setTo(0.5)
         this.toy.inputEnabled = true
-        this.toy.customParams = {fun: 10}
+        this.toy.customParams = {fun: 20}
         this.toy.events.onInputDown.add(this.pickItem, this)
 
         this.rotate = this.game.add.sprite(288, 570, 'rotate')
         this.rotate.anchor.setTo(0.5)
+        this.rotate.inputEnabled = true
+        this.rotate.events.onInputDown.add(this.rotatePet, this)
     },
     pickItem: function(sprite, event) {
         console.log('pick item')
