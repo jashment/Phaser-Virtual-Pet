@@ -1,161 +1,199 @@
+//this game will have only 1 state
 var GameState = {
 
-  preload: function() {
-    this.load.image('background', 'assets/images/background.png');
-    this.load.image('arrow', 'assets/images/arrow.png');
-    this.load.spritesheet('chicken', 'assets/images/chicken_spritesheet.png', 131, 200, 3);
-    this.load.spritesheet('horse', 'assets/images/horse_spritesheet.png', 212, 200, 3);
-    this.load.spritesheet('pig', 'assets/images/pig_spritesheet.png', 297, 200, 3);
-    this.load.spritesheet('sheep', 'assets/images/sheep_spritesheet.png', 244, 200, 3);
-    this.load.audio('chickenSound', ['assets/audio/chicken.ogg', 'assets/audio/chicken.mp3']);
-    this.load.audio('horseSound', ['assets/audio/horse.ogg', 'assets/audio/horse.mp3']);
-    this.load.audio('pigSound', ['assets/audio/pig.ogg', 'assets/audio/pig.mp3']);
-    this.load.audio('sheepSound', ['assets/audio/sheep.ogg', 'assets/audio/sheep.mp3']);
-  },
-  //executed after everything is loaded
-  create: function() {
-    
+  //initiate some game-level settings
+  init: function() {
     //scaling options
     this.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
-    
-    //have the game centered horizontally
     this.scale.pageAlignHorizontally = true;
     this.scale.pageAlignVertically = true;
+  },
+  //load the game assets before the game starts
+  preload: function() {
+    this.load.image('backyard', 'assets/images/backyard.png');    
+    this.load.image('apple', 'assets/images/apple.png');    
+    this.load.image('candy', 'assets/images/candy.png');    
+    this.load.image('rotate', 'assets/images/rotate.png');    
+    this.load.image('toy', 'assets/images/rubber_duck.png');    
+    this.load.image('arrow', 'assets/images/arrow.png');   
+    this.load.spritesheet('pet', 'assets/images/pet.png', 97, 83, 5, 1, 1); 
+  },
+  //executed after everything is loaded
+  create: function() {      
+    this.background = this.game.add.sprite(0, 0, 'backyard');
+    this.background.inputEnabled = true;
+    this.background.events.onInputDown.add(this.placeItem, this);
 
-    //create a sprite for the background
-    this.background = this.game.add.sprite(0, 0, 'background');
+    this.pet = this.game.add.sprite(100, 400, 'pet');
+    this.pet.anchor.setTo(0.5);
+
+    //spritesheet animation
+    this.pet.animations.add('funnyfaces', [1, 2, 3, 2, 1], 7, false);
+
+    //custom properties
+    this.pet.customParams = {health: 100, fun: 100};
+
+    //draggable pet
+    this.pet.inputEnabled = true;
+    this.pet.input.enableDrag();
+
+    this.apple = this.game.add.sprite(72, 570, 'apple');
+    this.apple.anchor.setTo(0.5);
+    this.apple.inputEnabled = true;
+    this.apple.customParams = {health: 20};
+    this.apple.events.onInputDown.add(this.pickItem, this);
+
+    this.candy = this.game.add.sprite(144, 570, 'candy');
+    this.candy.anchor.setTo(0.5);
+    this.candy.inputEnabled = true;
+    this.candy.customParams = {health: -10, fun: 10};
+    this.candy.events.onInputDown.add(this.pickItem, this);
+
+    this.toy = this.game.add.sprite(216, 570, 'toy');
+    this.toy.anchor.setTo(0.5);
+    this.toy.inputEnabled = true;
+    this.toy.customParams = {fun: 20};
+    this.toy.events.onInputDown.add(this.pickItem, this);
+
+    this.rotate = this.game.add.sprite(288, 570, 'rotate');
+    this.rotate.anchor.setTo(0.5);
+    this.rotate.inputEnabled = true;
+    this.rotate.events.onInputDown.add(this.rotatePet, this);
+
+    this.buttons = [this.apple, this.candy, this.toy, this.rotate];
+
+    //nothing is selected
+    this.selectedItem = null;
+
+    //the user interface (UI) is not blocked at the start
+    this.uiBlocked = false;
+
+    var style = { font: '20px Arial', fill: '#fff'};
+    this.game.add.text(10, 20, 'Health:', style);
+    this.game.add.text(140, 20, 'Fun:', style);
+
+    this.healthText = this.game.add.text(80, 20, '', style);
+    this.funText = this.game.add.text(185, 20, '', style);
+
+    this.refreshStats();
+
+  },
+  pickItem: function(sprite, event) {
     
-    //group for animals
-    var animalData = [
-      {key: 'chicken', text: 'CHICKEN', audio: 'chickenSound'},
-      {key: 'horse', text: 'HORSE', audio: 'horseSound'},
-      {key: 'pig', text: 'PIG', audio: 'pigSound'},
-      {key: 'sheep', text: 'SHEEP', audio: 'sheepSound'}
-    ];
+    //if the UI is blocked we can't pick an item
+    if(!this.uiBlocked) {
+      console.log('pick item');
 
-    //create a group to store all animals
-    this.animals = this.game.add.group();
+      this.clearSelection();
 
-    var self = this;    
-    var animal;
-    animalData.forEach(function(element){
-      //create each animal and save it's properties
-      animal = self.animals.create(-1000, self.game.world.centerY, element.key, 0);
+      //alpha to indicate selection
+      sprite.alpha = 0.4;
 
-      //I'm saving everything that's not Phaser-related in an object
-      animal.customParams = {text: element.text, sound: self.game.add.audio(element.audio)};
+      this.selectedItem = sprite;
+    }
+  },
+  rotatePet: function(sprite, event) {
 
-      //anchor point set to the center of the sprite
-      animal.anchor.setTo(0.5);
+    if(!this.uiBlocked) {     
 
-      //create animal animation
-      animal.animations.add('animate', [0, 1, 2, 1, 0, 1], 3, false);
+      //we want the user interface (UI) to be blocked until the rotation ends
+      this.uiBlocked = true;
 
-      //enable input so we can touch it
-      animal.inputEnabled = true;
-      animal.input.pixelPerfectClick = true;
-      animal.events.onInputDown.add(self.animateAnimal, self);
+      this.clearSelection();
+
+      //alpha to indicate selection
+      sprite.alpha = 0.4;
+
+      var petRotation = this.game.add.tween(this.pet);
+
+      //make the pet do two loops
+      petRotation.to({angle: '+720'}, 1000);
+
+      petRotation.onComplete.add(function(){
+        //release the UI
+        this.uiBlocked = false;
+
+        sprite.alpha = 1;
+
+        //increse the fun of the pet
+        this.pet.customParams.fun += 10;
+        
+        //update the visuals for the stats
+        this.refreshStats();
+        
+      }, this);
+
+      //start the tween animation
+      petRotation.start();
+    }
+
+    
+  },
+  clearSelection: function() {
+
+    //remove transparency from all buttons
+    this.buttons.forEach(function(element, index){
+      element.alpha = 1;
     });
 
-    //place first animal in the middle
-    this.currentAnimal = this.animals.next();
-    this.currentAnimal.position.set(this.game.world.centerX, this.game.world.centerY);
-
-    //show animal text
-    this.showText(this.currentAnimal);
-
-    //left arrow
-    this.leftArrow = this.game.add.sprite(60, this.game.world.centerY, 'arrow');
-    this.leftArrow.anchor.setTo(0.5);
-    this.leftArrow.scale.x = -1;
-    this.leftArrow.customParams = {direction: -1};
-
-    //left arrow user input
-    this.leftArrow.inputEnabled = true;
-    this.leftArrow.input.pixelPerfectClick = true;
-    this.leftArrow.events.onInputDown.add(this.switchAnimal, this);
-
-    //right arrow
-    this.rightArrow = this.game.add.sprite(580, this.game.world.centerY, 'arrow');
-    this.rightArrow.anchor.setTo(0.5);
-    this.rightArrow.customParams = {direction: 1};
-
-    //right arrow user input
-    this.rightArrow.inputEnabled = true;
-    this.rightArrow.input.pixelPerfectClick = true;
-    this.rightArrow.events.onInputDown.add(this.switchAnimal, this);    
-
+    //we are not selecting anything now
+    this.selectedItem = null;
   },
-  //this is executed multiple times per second
-  update: function() {
-    //this.animals.addAll('angle', 2);
-  },
-  //play animal animation and sound
-  animateAnimal: function(sprite, event) {
-    sprite.play('animate');
-    sprite.customParams.sound.play();
-  },
-  //switch animal
-  switchAnimal: function(sprite, event) {
+  placeItem: function(sprite, event) {
 
-    //if an animation is taking place don't do anything
-    if(this.isMoving) {
-      return false;
-    }
+    if(this.selectedItem && !this.uiBlocked) {
+      var x = event.position.x;
+      var y = event.position.y;
 
-    this.isMoving = true;
+      var newItem = this.game.add.sprite(x, y, this.selectedItem.key);
+      newItem.anchor.setTo(0.5);
+      newItem.customParams = this.selectedItem.customParams;
 
-    //hide text
-    this.animalText.visible = false;
+      this.uiBlocked = true;
 
-    var newAnimal, endX;
-    //according to the arrow they pressed, which animal comes in
-    if(sprite.customParams.direction > 0) {
-      newAnimal = this.animals.next();
-      newAnimal.x = -newAnimal.width/2;
-      endX = 640 + this.currentAnimal.width/2;
-    }
-    else {
-      newAnimal = this.animals.previous();
-      newAnimal.x = 640 + newAnimal.width/2;
-      endX = -this.currentAnimal.width/2;
-    }
+      //move the pet towards the item
+      var petMovement = this.game.add.tween(this.pet);
+      petMovement.to({x: x, y: y}, 700);
+      petMovement.onComplete.add(function(){
 
-    //tween animations, moving on x
-    var newAnimalMovement = this.game.add.tween(newAnimal);
-    newAnimalMovement.to({ x: this.game.world.centerX }, 1000);
-    newAnimalMovement.onComplete.add(function()
-      {
-        this.isMoving = false;
-        this.showText(newAnimal);
+        //destroy the apple/candy/duck
+        newItem.destroy();
+
+        //play animation
+        this.pet.animations.play('funnyfaces');
+
+        //release the ui
+        this.uiBlocked = false;
+
+        var stat;
+        for(stat in newItem.customParams) {
+          //we only want the properties of the customParams object, not properties that may existing in customParams.prototype
+          //this filters out all non-desired properties
+          if(newItem.customParams.hasOwnProperty(stat)) {
+            this.pet.customParams[stat] += newItem.customParams[stat];
+          }
+        }
+
+        //update the visuals for the stats
+        this.refreshStats();
+
       }, this);
-    newAnimalMovement.start();
 
-    var currentAnimalMovement = this.game.add.tween(this.currentAnimal);
-    currentAnimalMovement.to({ x: endX }, 1000);
-    currentAnimalMovement.start();
-
-    this.currentAnimal = newAnimal;
-  },
-  showText: function(animal) {
-    if(!this.animalText) {
-      var style = {
-        font: 'bold 30pt Arial',
-        fill: '#D0171B',
-        align: 'center'
-      }
-      this.animalText = this.game.add.text(this.game.width/2, this.game.height * 0.85, '', style);
-      this.animalText.anchor.setTo(0.5);
+      //start the tween animation
+      petMovement.start();
     }
-
-    this.animalText.setText(animal.customParams.text);
-    this.animalText.visible = true;
+    
+  },
+  refreshStats: function() {
+    this.healthText.text = this.pet.customParams.health;
+    this.funText.text = this.pet.customParams.fun;
   }
 
+  
 };
 
 //initiate the Phaser framework
-var game = new Phaser.Game(640, 360, Phaser.AUTO);
+var game = new Phaser.Game(360, 640, Phaser.AUTO);
 
 game.state.add('GameState', GameState);
 game.state.start('GameState');
